@@ -1,0 +1,51 @@
+variables:
+  REPO_NAME: hcache
+
+before_script:
+  # Install ssh-agent if not already installed, it is required by Docker.
+  # (change apt-get to yum if you use a CentOS-based image)
+  - 'which ssh-agent || ( apt-get update -y && apt-get install openssh-client -y )'
+
+  # Run ssh-agent (inside the build environment)
+  - eval $(ssh-agent -s)
+
+  # Add the SSH key stored in SSH_PRIVATE_KEY variable to the agent store
+  - ssh-add <(echo "$SSH_PRIVATE_KEY")
+  - go version
+  - export GOROOT=/usr/local/go
+  - export GOPATH=$CI_PROJECT_DIR/go
+  - go env
+  - echo $CI_BUILD_REF
+  - echo $CI_PROJECT_DIR
+
+stages:
+  - build
+  - deploy
+
+build-project:
+  stage: build
+  script:
+    - cd $CI_PROJECT_DIR/
+    #- rsync -a * go/src/$REPO_NAME
+    - mkdir -p $GOPATH/src/$REPO_NAME
+    - shopt -s extglob
+    - mv !(go) $GOPATH/src/$REPO_NAME
+    - cd $GOPATH/src/$REPO_NAME
+    - go get --insecure
+    - go build
+    - ls -la
+  artifacts:
+    paths:
+    - go/
+
+
+
+deploy-project:
+  stage: deploy
+  script:
+    - ls -la
+    # Run deploy script
+    - ~/scripts/deploy_hcache.sh $GOPATH/bin/$REPO_NAME $CI_PROJECT_DIR/config.toml
+  only:
+    - master
+
